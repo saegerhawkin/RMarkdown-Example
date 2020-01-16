@@ -1,0 +1,163 @@
+---
+title: "Assignment 4 - Store Location Proposal"
+author: "Hawkin Saeger"
+date: "11/16/2019"
+output: html_document
+runtime: shiny
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r readData, echo=FALSE, include=FALSE}
+
+# not showing this because its just for reading in data and calling libraries
+ad_df<-read.csv('data\\advertisement.csv', header <- TRUE, stringsAsFactors = FALSE)
+ad_df$Spending <- gsub("[$,]","",ad_df$Spending)
+ad_df$Spending <- as.numeric(ad_df$Spending)
+
+income_df <- read.csv('data\\Incomeproject1.csv', header = TRUE, stringsAsFactors = FALSE)
+
+transaction_df<-read.csv('data\\July 14 Sales Transactions.csv', header = TRUE, stringsAsFactors = FALSE)
+str(transaction_df)
+transaction_df$Amount<-gsub("[$]","",transaction_df$Amount)
+transaction_df$Amount<-as.numeric(transaction_df$Amount)
+
+checkbox_data<-read.csv('data\\checkbox_line.csv', header = TRUE, stringsAsFactors = FALSE)
+
+library(ggplot2)
+library(plotly)
+library(dplyr)
+library(shiny)
+library(tidyr)
+```
+
+### Assignment Goal ###
+We are looking to open five new stores throughout the United States. Based on the following analysis we are going to determine what would be the best locations for our organization to be most successful. Each section will look at one of the different data files available. 
+
+
+## Sales Transactions ## 
+We have data on sales transactions on July 14th all over the United States. This doesn't really give us a good snapshot of where to open stores because we won't be selling on just July 14th. Spending patterns might change throughout the year as well. But we still are going to look at a few variables to see if we can make some insights.
+
+```{r bar-chart}
+# Get summarized data with dplyr
+
+region_group <- transaction_df %>% 
+  group_by(Region)%>%
+  summarize(mean_size= mean(Amount), sum_amount = sum(sum(Amount)))
+region_group <- data.frame(region_group)
+
+# bar chart of region data
+my_bar <- ggplot(region_group, aes(x=Region, y=mean_size)) + 
+  geom_bar(stat = "identity", fill="blue") +
+  geom_label(aes(label=round(mean_size,digits=2))) +
+  ggtitle("Average Purchase in Every Region")+
+  ylab("Average Purchase ($)") +
+  theme(plot.title = element_text(size = 26, face = "bold"))
+
+renderPlot(my_bar)
+
+```
+
+Average Purchase in every region shows us that the South spends more money than any of the other regions. It may be also beneficial to see how many purchases happened in each region.
+
+```{r bar-chart2}
+# Bar Plot
+count_region <- transaction_df %>% 
+  count(Region)
+
+bar_count <- ggplot(count_region, aes(x=Region, y=n)) + 
+  geom_bar(stat = "identity", fill="#317FD7") +
+  geom_label(aes(label=n)) +
+  ggtitle("Total Purchases in Each Region")+
+  ylab("Number of Purchases") +
+  theme(plot.title = element_text(size = 26, face = "bold"))
+
+renderPlot(bar_count)
+
+```
+
+It looks like the West bought more on July 15th. However these transactions were all just Books and DVDs so I don't think it would be relevant to helping us locate where we want to set up beauty shops. Unless there is a correlation between buying beauty products and books/dvds, I think we can stop considering this data. The next two datasets should be more relevant.
+
+
+#Income of 25 States#
+Lastly, we have some information about the average income in 25 States. The states are:
+
+* California
+* Conneticut
+* Washington DC
+* Deleware
+* Florida
+* Idaho
+* Iowa
+* Indianna
+* Illinois
+* Kansas
+* Massachusetts
+* Maine
+* Maryland
+* North Carolina
+* North Dakota
+* Nebraska
+* New Jersey
+* New York
+* Oklahoma
+* Pennsylvania
+* Rhode Island
+* South Dakota
+* Virginia
+* Vermont
+* West Virginia
+
+First I wanted to explore the top 10 income states by year. Take a look at the animated bar chart below to see the progression over every year. *This code is separate because it would be a lot to include in this file. Check it out in the folder* \n\n
+
+![](Income_Video.mp4){width="90%" height="600"}
+
+Now lets take a look at the time series. Use the checkbox input below to see only the states you want graphed. 
+```{r}
+# Checkboxes to select input for graph
+checkboxGroupInput(inputId = "line",                                                                               label = h4("What states would you like to see? Do NOT select Year"), 
+         choices = names(checkbox_data))
+
+# Line plots for the state income information based on check box selection
+renderPlot({           
+    validate(need(!is.null(input$line), 'Please tick a box to show a plot.'))
+    data <- gather(select(checkbox_data, "Year", input$line), variable, value, -Year)
+    # the plot, coloured by variable
+    ggplot(data, aes(x=Year, y = value, colour = variable)) + geom_line() + geom_point()
+  })
+```
+
+## Advertisements ##
+Lastly we are going to explore some advertisement data. This data came from a survey specifically focused on beauty product advertisements so we can look at information about potential clients. Unfortunately there is no location information in this survey so it doesn't help with deciding the location of new stores. However, it can provide some information about who to target our ads to.
+
+```{r}
+# boxplot to see the age data
+g <-ggplot(ad_df, aes(x=Gender, y=Age)) + 
+  geom_boxplot()+
+  ggtitle("How Old Are The Respondents?")+
+  theme(plot.title = element_text(size = 20, face = "bold"))
+ggplotly(g)
+```
+
+Judging by this boxplot. We can see that for women, most of the female respondents are between 19 and 32 years old. Males are between 22 and 27. Lets also look at spending.
+
+```{r}
+
+g<-ggplot(ad_df, aes(x=Age, y = Spending, colour = Gender)) + geom_point()+
+  ggtitle("Spending by Age")+
+  ylab("Spending (in $)") +
+  theme(plot.title = element_text(size = 20, face = "bold"))
+ggplotly(g)
+```
+
+## Conclusion ##
+The data here does not necesarily help us decide the location of new stores. The July 14th transactions was nice data, but was not relevant towards beauty products. The income data was very nice to have although it only went to 1999. We would want more recent data. The survey data was wonderful for understanding our customers, but it really doesn't help with location of new stores either. There needs to be a connection between the customer and the location. Maybe with more recent data we could connect state income to the survey respondents. \n\n For now, my recommendation for store location would be based strictly off state income, and what market we wanted to target. For example, to go for higher income people we should target the following:
+
+* Washington DC
+* Conneticutt
+* New Jersey 
+* Massachusetts
+* New York
+
+Setting up stores in the north east would be beneficial.
